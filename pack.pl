@@ -4,6 +4,5 @@ author('Samer Abdallah','samer.abdallah.00@gmail.com').
 title('Random sampling DCG meta-interpreter').
 download('https://github.com/samer--/sampledcg.git').
 requires(plrand).
-requires(genutils).
 requires(dcgutils).
 
