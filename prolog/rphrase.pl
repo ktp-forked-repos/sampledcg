@@ -69,6 +69,7 @@ list vs. big term vs foreign object. See GSL.
 
 :- use_module(library(plrand)).
 :- use_module(library(prob/meta)).
+:- use_module(library(callutils), [bt_call/2]).
 :- use_module(library(dcg_core), [out//1, set//1, get//1, set_with//1, repeat//0, nop//0, once//1]). 
 :- use_module(library(dcg_pair)). 
 
@@ -666,7 +667,6 @@ trace_write(match_check(dist(_,[])),_/_/1,T:G) :-
 	format('*** no matches for ~w:~w\n',[T,G]), fail.
 
 bound(_=Value) :- nonvar(Value).
-
 
 % some useful rules.. 
 with(S,G) ---> iso((set(S),G)).
