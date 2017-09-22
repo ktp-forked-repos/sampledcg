@@ -43,9 +43,6 @@ soln        ---> soln(term).
 clause      ---> clause(term).
 ==
 
-Uses matching_solns written in Prolog
-Uses sampler written in Prolog
-
 @tbd
 
 Try to optimise representation of discrete distribution:
@@ -186,7 +183,7 @@ sample_rphrase(P,L,S1,S2) :- rphrase(P,L-S1,[]-S2).
 %  Run rphrase on P inside standard (list building) DCG, taking
 %  mode state from S1 to S2.
 %  Uses and updates global RNG state.
-run_rphrase(P,S1,S2) --> run_right( rphrase(P), S1, S2).
+run_rphrase(P,S1,S2) --> run_right(rphrase(P), S1, S2).
 
 
 %%	rphrase( +P:phrase, +S1:rpst, -S2:rpst) is det.
@@ -251,16 +248,16 @@ rphrase((A,B))  --> !, rphrase(A), rphrase(B).
 rphrase(A>>B)   --> !, rphrase(A), rphrase(B).
 rphrase(G->A;B) --> !, (rphrase(G) ->	rphrase(A);	rphrase(B)).
 rphrase(G->A)   --> !, (rphrase(G) ->	rphrase(A);	nop).
-rphrase(fac(G)) --> !, once((rphrase:repeat,rphrase(G))). % !! dangerous
+rphrase(fac(G)) --> !, once((dcg_core:repeat,rphrase(G))). % !! dangerous
 rphrase({G})    --> !, {once(G)}. 
 
 rphrase([])     --> !.
 rphrase([A|AX]) --> !, \< [A|AX]. 
-rphrase(out(L)) --> !, \< rphrase:out(L).
-rphrase(set(S)) --> !, \> rphrase:set(S).
-rphrase(get(S)) --> !, \> rphrase:get(S).
-rphrase(empty)  --> !, \> rphrase:set_with(empty_state).
-rphrase(app(G)) --> !, \> rphrase:once(G).
+rphrase(out(L)) --> !, \< dcg_core:out(L).
+rphrase(set(S)) --> !, \> dcg_core:set(S).
+rphrase(get(S)) --> !, \> dcg_core:get(S).
+rphrase(empty)  --> !, \> dcg_core:set_with(empty_state).
+rphrase(app(G)) --> !, \> dcg_core:once(G).
 
 % capture output of operator
 % rphrase(A\\B,L1-S1,L2-S2) :- !, rphrase(A,B-S1,[]-S2), append(B,L2,L1).
@@ -671,7 +668,6 @@ bound(_=Value) :- nonvar(Value).
 % some useful rules.. 
 with(S,G) ---> iso((set(S),G)).
 iso(G)    ---> get(T), G, set(T).
-
 
 rep(0,_) ---> [].
 rep(N,G) ---> 

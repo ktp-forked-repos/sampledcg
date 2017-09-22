@@ -1,4 +1,4 @@
-:- module(rphrase,
+:- module(rphrase_gap,
 	[	rphrase/3         % probabilistic DCG interpreter
 	,	run_rphrase/5     % run rphrase in ordinary DCG with given states
 	,	sample_rphrase/4  % sample a sequence from pDCG
@@ -43,11 +43,8 @@ soln        ---> soln(term).
 clause      ---> clause(term).
 ==
 
-
-Uses matching_solns written in Prolog
-Uses list sampler written in Prolog
-
 @tbd
+
 Try to optimise representation of discrete distribution:
 list vs. big term vs foreign object. See GSL.
 
@@ -168,25 +165,28 @@ load_rules(Module) :-
 	assert( (A--->B)     :- Module:(A--->B)),
 	assert( (A+-->B)     :- Module:(A+-->B)).
 
+
 %% empty_state( -State:pdcg) is det.
 %
 %  Initialise State to empty pDCG before any sampling.
 empty_state(pdcg([],[])).
 
 
-%% sample_rphrase( +P:phrase, -L:list, +S1:pdcg, -S2:pdcg) is random.
+%% sample_rphrase( +P:phrase, -L:list, +S1:pdcg, -S2:pdcg) is det.
 %
 %  Run a pDCG phrase collecting the output in list L.
+%  Uses and updates global RNG state.
 sample_rphrase(P,L,S1,S2) :- rphrase(P,(L-[])-S1,([]-[])-S2).
 
-%% run_rphrase( +P:phrase, +S1:pdcg, -S2:pdcg)// is random.
+%% run_rphrase( +P:phrase, +S1:pdcg, -S2:pdcg)// is det.
 %
 %  Run rphrase on P inside standard (list building) DCG, taking
 %  mode state from S1 to S2.
+%  Uses and updates global RNG state.
 run_rphrase(P,S1,S2) --> run_right(rphrase(P), S1, S2).
 
 
-%%	rphrase( +P:phrase, +S1:rpst, -S2:rpst) is random.
+%%	rphrase( +P:phrase, +S1:rpst, -S2:rpst) is det.
 %
 %  Probabilistic DCG main interpreter.
 %  The interpreter state is of type =rpst=, where
@@ -248,19 +248,19 @@ rphrase((A,B))  --> !, rphrase(A), rphrase(B).
 rphrase(A>>B)   --> !, rphrase(A), rphrase(B).
 rphrase(G->A;B) --> !, (rphrase(G) ->	rphrase(A);	rphrase(B)).
 rphrase(G->A)   --> !, (rphrase(G) ->	rphrase(A);	nop).
-rphrase(fac(G)) --> !, once((repeat,rphrase(G))). % !! dangerous
+rphrase(fac(G)) --> !, once((dcg_core:repeat,rphrase(G))). % !! dangerous
 rphrase({G})    --> !, {once(G)}. 
 
 rphrase([])     --> !.
 rphrase([A|AX]) --> !, \< \< [A|AX]. 
-rphrase(out(L)) --> !, \< \< out(L).
-rphrase(set(S)) --> !, \> set(S).
-rphrase(get(S)) --> !, \> get(S).
-rphrase(empty)  --> !, \> set_with(empty_state).
-rphrase(app(G)) --> !, \> once(G).
+rphrase(out(L)) --> !, \< \< dcg_core:out(L).
+rphrase(set(S)) --> !, \> dcg_core:set(S).
+rphrase(get(S)) --> !, \> dcg_core:get(S).
+rphrase(empty)  --> !, \> dcg_core:set_with(empty_state).
+rphrase(app(G)) --> !, \> dcg_core:once(G).
 
-rphrase(island(A)) --> !, (\< \> trans(G,G)) // rphrase(A).
-rphrase(fills(A,B)) --> !, (\< \> out(A)), rphrase(B).
+rphrase(island(A)) --> !, (\< \> dcg_core:trans(G,G)) // rphrase(A).
+rphrase(fills(A,B)) --> !, (\< \> dcg_core:out(A)), rphrase(B).
 
 % capture output of operator
 % rphrase(A\\B,L1-S1,L2-S2) :- !, rphrase(A,B-S1,[]-S2), append(B,L2,L1).
@@ -295,6 +295,8 @@ mapgoal_x( A, B) :- copy_head(A,B).
 
 maprule_x( A, B) :- maprule(A,B), !.
 maprule_x( A, B) :- copy_head(A,B).
+
+copy_head(H1,H2) :- functor(H1,F,A), functor(H2,F,A).
 
 dcg_clause(H,true,B,nonrec,1) :- (H ---> B), H\=(_ # _), H\=(_\\_), B\=(_\\_).
 dcg_clause(H,true,B,rec,1)    :- (H +--> B), H\=(_ # _), H\=(_\\_), B\=(_\\_).
@@ -458,7 +460,7 @@ resample(Method) ---> app(resample_probs(Method)).
 edit(Head,Method) ---> app(edit_probs(Head,Method)).
 
 
-%% resample_probs( +Method, +S1:pdcg, -S2:pdcg) is random.
+%% resample_probs( +Method, +S1:pdcg, -S2:pdcg) is det.
 %
 %  Resample probabilities based on their current values using
 %  given method. Method can be:
@@ -513,7 +515,6 @@ cool_probs(DT, pdcg(In1,In2), pdcg(Out1,Out2)) :-
 %  Method can be one of
 %  * print
 %  * print_head
-%  * print_all
 %  * get_weights(H,W)
 %  * set_weights(W)
 %  * mul_weights(K)
@@ -530,7 +531,6 @@ edit_probs(rule:Head, Method, pdcg(In1,In2), pdcg(In1,Out2)) :-
 
 print(H,S,S) :- unzipweights(S,W,_), print(H:W), nl. % writeln(H:W)
 print_head(H,S,S) :- unzipweights(S,W,_), length(W,N), format('~w:<~d records>\n',[H,N]).
-print_all(H,S,S) :- format('\n---head: ~w\n',[H]), print_list(S).
 get_weights(H,W,H,S,S) :- unzipweights(S,W,_).
 set_weights(W,_,S1,S2) :- zipweights(W,S1,S2).
 mul_weights(K,_,S1,S2) :- maplist(mul,K,S1,S2).
@@ -628,7 +628,6 @@ sumweights([W-_|XX],T) :- sumweights(XX,T0), T is W+T0.
 mul(K,X-Z,Y-Z) :- Y is X*K.
 
 
-
 %% tron is det.
 %% tron( +Flags) is det.
 %
@@ -641,7 +640,8 @@ mul(K,X-Z,Y-Z) :- Y is X*K.
 %    enables tracing of rule exit.
 %  * Match  
 %    enables message when no matches are found for a rule.
-%    Equivalent to tron(1/1/1).
+%
+%  tron is equivalent to tron(1/1/1).
 
 tron :- tron(1/1/1).
 tron(F) :-
@@ -668,10 +668,7 @@ trace_write(match_check(dist(_,[])),_/_/1,T:G) :-
 
 bound(_=Value) :- nonvar(Value).
 
-
-
 % some useful rules.. 
-%
 with(S,G) ---> iso((set(S),G)).
 iso(G)    ---> get(T), G, set(T).
 
@@ -684,7 +681,6 @@ rep(N,G) --->
 		)
 	).
 
-%user:portray(pdcg(A,B)) :- write_term(pdcg(A,B),[max_depth(5)]).
 user:portray(pdcg(GS,RS)) :- 
 	length(RS,N1), length(GS,N2), 
 	format('pdcg<~w goals, ~w rules>',[N2,N1]).
