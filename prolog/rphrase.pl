@@ -69,7 +69,6 @@ list vs. big term vs foreign object. See GSL.
 
 :- use_module(library(plrand)).
 :- use_module(library(prob/meta)).
-:- use_module(library(termutils), [get_key/2]).
 :- use_module(library(dcg_core), [out//1, set//1, get//1, set_with//1, repeat//0, nop//0, once//1]). 
 :- use_module(library(dcg_pair)). 
 
@@ -406,20 +405,6 @@ filter_goal(Goal,clause(H,G,B,R,_),clause(H1,copy,B1,R,_)) :-
 	copy_term(c(H,G,B),c(H1,G1,B1)),
 	call(G1).
 
-/*
-filter_goal(Goal,soln(G,R),solns(G,R)) :- unifiable(Goal,G,_).
-filter_goal(Goal,clause(H,G,B,R,_),clause(H1,B1,R)) :- 
-	copy_term(Goal,H1),
-	check_guard(G,H,B,H1,B1).
-
-check_guard(true,Head,Body,H1,B1) :- !, 
-	copy_term(Head:Body,H1:B1).
-
-check_guard(Guard,Head,Body,H1,B1) :- 
-	copy_term(c(Head,Guard,Body),c(H1,G1,B1)),
-	call(G1).
-*/
-
 % this makes sure that weights for recursive clauses are not too large
 rec_weight_max(0.9).
 
@@ -700,7 +685,5 @@ rep(N,G) --->
 user:portray(pdcg(GS,RS)) :- 
 	length(RS,N1), length(GS,N2), 
 	format('pdcg<~w goals, ~w rules>',[N2,N1]).
-
-fmt_st_seq(L-_,T-_) :- append(R,T,L), writeln(R).
 
 :- troff.

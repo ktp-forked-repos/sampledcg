@@ -67,10 +67,7 @@ list vs. big term vs foreign object. See GSL.
 	,	sample_goal/3
 	.
 
-:- use_module(library(ops)).
-:- use_module(library(utils)).
 :- use_module(library(plrand)).
-:- use_module(library(meta), [ check_bindings/1 ]).
 :- use_module(library(dcg_core)). 
 :- use_module(library(dcg_pair)). 
 
@@ -220,10 +217,6 @@ run_rphrase(P,S1,S2) --> run_right(rphrase(P), S1, S2).
 %		  Initialise pDCG model.
 %		* app(G:goal(2))    
 %		  apply G:pred(+pdcg,-pdcg) to current model.
-%		* shell(Prompt:atom)           
-%		  Run interactive rphrase shell with given prompt.
-%		* shell           
-%		  Run interactive rphrase shell with default prompt.
 %		* #(G:goal(0))   
 %		  #G makes a random choice from all solutions of Prolog goal G.
 %		* Head       
@@ -278,33 +271,6 @@ rphrase( #(G))  --> !,
 	{rtrace(pre,goal:G)},
 	\> sample_goal(G),
 	{rtrace(post,goal:G)}.
-
-rphrase(shell) --> !, rphrase(shell('rphrase >- ')). 
-
-rphrase(shell(Prompt),S0,S2) :- !, 
-	read_history(h,'!h',[trace,end_of_file],Prompt,Goal,Bindings),
-	(	(Goal=halt;Goal=end_of_file) -> nl, S0=S2
-	;	Goal=fail -> fail
-	;	catch( 
-			( 
-			 	(	rl_write_history('.swipl_history'), 
-					rphrase(Goal,S0,S1), 
-					nl, write('  Result: '),
-					rphrase:fmt_st_seq(S0,S1),
-					include(rphrase:bound,Bindings,BoundBindings),
-					(	BoundBindings=[] 
-					->	rphrase:get_key([';','\r','.'],K), (K='\r';K='.'), nl 
-					;	rphrase:check_bindings(BoundBindings)
-					),
-					write('  Yes.\n\n')
-				;	write('\n  No.\n'), S0=S1
-				)
-			),
-			Exception,
-			( nl, print_message(error,Exception), S1=S0, nl)
-		), !, 
-		rphrase(shell(Prompt),S1,S2)
-	).
 
 % expand a DCG rule choosing one of the clauses
 rphrase(T)  --> !, 
@@ -436,25 +402,11 @@ filter_goal(Goal,clause(H,G,B,R,_),clause(H1,copy,B1,R,_)) :-
 	copy_term(c(H,G,B),c(H1,G1,B1)),
 	call(G1).
 
-/*
-filter_goal(Goal,soln(G,R),solns(G,R)) :- unifiable(Goal,G,_).
-filter_goal(Goal,clause(H,G,B,R,_),clause(H1,B1,R)) :- 
-	copy_term(Goal,H1),
-	check_guard(G,H,B,H1,B1).
-
-check_guard(true,Head,Body,H1,B1) :- !, 
-	copy_term(Head:Body,H1:B1).
-
-check_guard(Guard,Head,Body,H1,B1) :- 
-	copy_term(c(Head,Guard,Body),c(H1,G1,B1)),
-	call(G1).
-*/
-
 % this makes sure that weights for recursive clauses are not too large
-:- set_state(rec_weight_max,0.9).
+rec_weight_max(0.9).
 
 adjust_weights(dist(Tot,In),dist(NewTot,Out)) :- 
-	current_state(rec_weight_max,Max1), Max is Max1*Tot,
+	rec_weight_max(Max1), Max is Max1*Tot,
 	adjust_weights_x(Max/Tot,In,Out,0,NewTot).
 
 adjust_weights_x(_,[],[],T,T).
@@ -717,11 +669,9 @@ bound(_=Value) :- nonvar(Value).
 
 
 % some useful rules.. 
-kset(Key) ---> {current_state(Key,S)}, set(S).
-kget(Key) ---> get(S), {set_state(Key,S)}.
+%
 with(S,G) ---> iso((set(S),G)).
 iso(G)    ---> get(T), G, set(T).
-
 
 rep(0,_) ---> [].
 rep(N,G) ---> 
@@ -736,7 +686,5 @@ rep(N,G) --->
 user:portray(pdcg(GS,RS)) :- 
 	length(RS,N1), length(GS,N2), 
 	format('pdcg<~w goals, ~w rules>',[N2,N1]).
-
-fmt_st_seq(L-_,T-_) :- append(R,T,L), writeln(R).
 
 :- troff.
